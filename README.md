@@ -4,7 +4,6 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18.x-38a169?style=flat-square)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-2b6cb0?style=flat-square)](https://www.typescriptlang.org/)
 [![Docs.rs](https://img.shields.io/badge/Docs.rs-MCP-ff69b4?style=flat-square)](https://github.com/shuakami/mcp-docsrs)
-[![smithery badge](https://smithery.ai/badge/@shuakami/mcp-docsrs)](https://smithery.ai/server/@shuakami/mcp-docsrs)
 
 [English Version (README-EN.md)](README-EN.md)
 
