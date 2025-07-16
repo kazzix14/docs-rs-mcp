@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import TurndownService from 'turndown';
 
 interface CacheEntry<T> {
   data: T;
@@ -26,6 +27,40 @@ export class DocsRsApi {
     this.userAgent = 'mcp-docsrs-tool/1.0 (https://github.com/shuakami/mcp-init)';
     this.cache = new Map<string, CacheEntry<any>>();
     this.cacheDuration = 5 * 60 * 1000; // 5 minutes
+  }
+
+  private _getStdlibPotentialUrls(itemPath: string): string[] {
+    const parts = itemPath.split('::');
+    const crateName = parts[0];
+    const itemParts = parts.slice(1);
+    const modPath = itemParts.slice(0, -1).join('/');
+    const itemName = itemParts.slice(-1)[0];
+    
+    // The base URL for the standard library is different from docs.rs
+    const baseUrl = `https://doc.rust-lang.org/stable/${crateName}/`;
+  
+    // List of possible item types in stdlib docs
+    const itemTypes = ['struct', 'enum', 'fn', 'trait', 'mod', 'type', 'macro'];
+  
+    const potentialUrls = itemTypes.map(type => {
+      const finalItemName = (type === 'macro' && itemName.endsWith('!')) ? itemName.slice(0, -1) : itemName;
+      let url = baseUrl;
+      if (modPath) {
+          url += `${modPath}/`;
+      }
+      url += `${type}.${finalItemName}.html`;
+      return url;
+    });
+  
+    // URL for modules
+    let moduleIndexUrl = baseUrl;
+    if (modPath) {
+        moduleIndexUrl += `${modPath}/`;
+    }
+    moduleIndexUrl += `${itemName}/index.html`;
+    potentialUrls.push(moduleIndexUrl);
+  
+    return potentialUrls;
   }
 
   private getFromCache<T>(key: string): T | null {
@@ -131,43 +166,60 @@ export class DocsRsApi {
 
     const parts = itemPath.split('::');
     const crateName = parts[0];
-    const modPath = parts.slice(1, -1).join('/');
-    const itemName = parts.slice(-1)[0];
+    const isStdLib = ['std', 'core', 'alloc'].includes(crateName);
+
+    const headers = { 
+        'User-Agent': isStdLib ? this.userAgent : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+    };
+    let fetchPromises: Promise<Response>[];
+
+    if (isStdLib) {
+        const potentialUrls = this._getStdlibPotentialUrls(itemPath);
+        fetchPromises = potentialUrls.map(url => fetch(url, { headers }));
+    } else {
+        const searchName = parts.slice(1).join('::');
+        const itemName = parts.slice(-1)[0].replace(/!$/, '');
+
+        const searchResults = await this.searchInCrate(crateName, itemName);
+        let item = searchResults.find(r => r.name === searchName);
+        if (!item) {
+            item = searchResults.find(r => r.name === itemName || r.name.endsWith('::' + itemName));
+        }
+        if (!item) {
+            throw new Error(`Could not find item "${searchName}" in crate "${crateName}".`);
+        }
+        fetchPromises = [fetch(item.path, { headers })];
+    }
     
-    const itemTypes = ['struct', 'enum', 'fn', 'trait', 'mod', 'type'];
-    const potentialUrls = itemTypes.map(type => 
-      `https://docs.rs/${crateName}/latest/${crateName.replace(/-/g, '_')}/${modPath}/${type}.${itemName}.html`
-    );
-    potentialUrls.push(`https://docs.rs/${crateName}/latest/${crateName.replace(/-/g, '_')}/${modPath}/${itemName}/index.html`);
-
-    const headers = { 'User-Agent': this.userAgent };
-    const fetchPromises = potentialUrls.map(url => fetch(url, { headers }).then(res => {
-        if (!res.ok) throw new Error(`URL ${url} failed with status ${res.status}`);
-        return res;
-    }));
-
     try {
-      const successfulResponse = await Promise.any(fetchPromises);
+        // We use Promise.any for stdlib, and a direct fetch for others.
+        // Wrapping the single promise in an array and using .any still works.
+        const successfulResponse = await Promise.any(fetchPromises.map(p => p.then(res => {
+            if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+        return res;
+        })));
+
       const html = await successfulResponse.text();
       const $ = cheerio.load(html);
       
       const mainContent = $('#main-content');
       const itemType = mainContent.find('.main-heading span').first().text().trim() || 'Unknown';
-      const docHtml = mainContent.find('details.top-doc > .docblock').html() || 'No documentation found.';
+        const rawDocHtml = mainContent.find('details.top-doc > .docblock').html() || mainContent.find('.docblock').first().html();
 
-      const result = { itemType, docHtml };
+        let docMarkdown = 'No documentation found.';
+        if (rawDocHtml) {
+            const turndownService = new TurndownService();
+            docMarkdown = turndownService.turndown(rawDocHtml);
+        }
+
+        const result = { itemType, docHtml: docMarkdown };
       this.setInCache(cacheKey, result);
       return result;
     } catch (error) {
-      // This will be an AggregateError
-      if (error instanceof AggregateError) {
-        const firstErrorMessage = error.errors[0]?.message || 'Unknown error';
-        // Provide a more specific error message based on common failure cases
-        if (firstErrorMessage.includes('404')) {
-            throw new Error(`Could not find a valid documentation page for "${itemPath}". Please check the path is correct.`);
-        }
+        if (error instanceof Error) {
+            throw new Error(`Failed to process documentation page for "${itemPath}". Reason: ${error.message}`);
       }
-      throw new Error(`Could not find a valid documentation page for "${itemPath}". All attempts failed.`);
+        throw new Error(`An unknown error occurred while processing documentation for "${itemPath}".`);
     }
   }
 
@@ -178,23 +230,37 @@ export class DocsRsApi {
 
     const parts = itemPath.split('::');
     const crateName = parts[0];
-    const modPath = parts.slice(1, -1).join('/');
-    const itemName = parts.slice(-1)[0];
-    
-    const itemTypes = ['struct', 'enum', 'fn', 'trait', 'mod', 'type'];
-    const potentialUrls = itemTypes.map(type => 
-      `https://docs.rs/${crateName}/latest/${crateName.replace(/-/g, '_')}/${modPath}/${type}.${itemName}.html`
-    );
-    potentialUrls.push(`https://docs.rs/${crateName}/latest/${crateName.replace(/-/g, '_')}/${modPath}/${itemName}/index.html`);
+    const isStdLib = ['std', 'core', 'alloc'].includes(crateName);
 
-    const headers = { 'User-Agent': this.userAgent };
-    const fetchPromises = potentialUrls.map(url => fetch(url, { headers }).then(res => {
-        if (!res.ok) throw new Error(`URL ${url} failed with status ${res.status}`);
-        return res;
-    }));
+    const headers = { 
+        'User-Agent': isStdLib ? this.userAgent : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+    };
+    let fetchPromises: Promise<Response>[];
+
+    if (isStdLib) {
+        const potentialUrls = this._getStdlibPotentialUrls(itemPath);
+        fetchPromises = potentialUrls.map(url => fetch(url, { headers }));
+    } else {
+        const searchName = parts.slice(1).join('::');
+        const itemName = parts.slice(-1)[0].replace(/!$/, '');
+
+        const searchResults = await this.searchInCrate(crateName, itemName);
+        let item = searchResults.find(r => r.name === searchName);
+        if (!item) {
+            item = searchResults.find(r => r.name === itemName || r.name.endsWith('::' + itemName));
+        }
+        if (!item) {
+            return [];
+        }
+        fetchPromises = [fetch(item.path, { headers })];
+    }
 
     try {
-      const successfulResponse = await Promise.any(fetchPromises);
+        const successfulResponse = await Promise.any(fetchPromises.map(p => p.then(res => {
+            if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+        return res;
+        })));
+      
       const html = await successfulResponse.text();
       const $ = cheerio.load(html);
       
@@ -206,10 +272,7 @@ export class DocsRsApi {
       this.setInCache(cacheKey, examples);
       return examples;
     } catch (error) {
-      if (error instanceof AggregateError) {
-        throw new Error(`Could not find a valid documentation page for "${itemPath}" to scrape examples from. Please check the path.`);
-      }
-      throw new Error(`Could not find a valid documentation page for "${itemPath}".`);
+        return [];
     }
   }
 
@@ -218,7 +281,8 @@ export class DocsRsApi {
     const cached = this.getFromCache<{ name: string; type: string; path: string }[]>(cacheKey);
     if (cached) return cached;
 
-    const url = `https://docs.rs/${crateName}/latest/${crateName.replace(/-/g, '_')}/all.html`;
+    const baseUrl = `https://docs.rs/${crateName}/latest/${crateName.replace(/-/g, '_')}/`;
+    const url = `${baseUrl}all.html`;
     const headers = { 'User-Agent': this.userAgent };
     const response = await fetch(url, { headers });
     if (!response.ok) throw new Error(`Failed to fetch all.html: ${response.statusText}`);
@@ -235,7 +299,9 @@ export class DocsRsApi {
             const itemName = $(a).text().trim();
             const itemPath = $(a).attr('href');
             if (itemName && itemPath) {
-                searchIndex.push({ name: itemName, type: itemType.slice(0, -1), path: itemPath });
+                // Prepend the base URL to make the path absolute
+                const fullPath = new URL(itemPath, baseUrl).href;
+                searchIndex.push({ name: itemName, type: itemType.slice(0, -1), path: fullPath });
             }
         });
     });

@@ -21,8 +21,8 @@ In simple terms, it allows your AI assistant to become a professional Rust devel
 - **Crate Info**: Get metadata, module lists, and the latest version information for a specific crate.
 - **List Feature Flags**: Display all available feature flags for a crate.
 - **Global Search within a Crate**: Perform efficient full-text search across all documentation for a specific crate.
-- **View API Definitions**: Get detailed definitions and documentation for specific modules, functions, structs, or enums.
-- **Get Code Examples**: Find and display usage examples for a specific API.
+- **Comprehensive API Definition Lookup**: Get detailed definitions and documentation not only for functions and structs, but also with full support for **macros**, **complex type aliases**, **FFI types**, and the **standard library** (`std`, `core`, `alloc`).
+- **Accurate Code Example Retrieval**: Find and display usage examples for a specific API, with support for the standard library as well.
 </details>
 
 <details>
@@ -31,10 +31,11 @@ In simple terms, it allows your AI assistant to become a professional Rust devel
 Here are some of the core features of the Docs.rs MCP Tool:
 
 - **Immersive Documentation Experience**: All operations are completed within the editor, eliminating the need to switch to a browser and maintaining a seamless development workflow.
-- **Efficient Internal Search**: Achieves fast and accurate full-text search within a crate's documentation by building an in-memory search index.
+- **Efficient Internal Search and Lookup**: Achieves fast and accurate full-text search and lookups within a crate's documentation by building an in-memory search index from `all.html`, **flawlessly handling type aliases, re-exports, and other complex cases**.
+- **Broad Compatibility**: Extensively tested to ensure stable support for the vast majority of libraries on docs.rs, including special handling for the standard library.
 - **Smart Caching Mechanism**: Caches API requests and parsed data to significantly speed up repeated queries.
 - **Pagination Support**: Supports paginated browsing for long lists like modules and search results to avoid information overload.
-- **Markdown Formatted Output**: Converts raw HTML documentation into beautifully formatted Markdown, enhancing readability in AI conversations.
+- **Markdown Formatted Output**: Converts raw HTML documentation into beautifully formatted Markdown, **improving the readability of code snippets and documentation**.
 - **Stable and Reliable**: Ensures the information is up-to-date by interacting directly with the official crates.io and docs.rs services.
 
 With simple natural language instructions, your AI can perform all the above operations, becoming a powerful assistant for learning and using the Rust ecosystem libraries.
