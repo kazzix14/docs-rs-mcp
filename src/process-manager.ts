@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // 锁文件路径配置
-const LOCK_FILE = path.join(process.cwd(), '.mcp-template.lock');
+const LOCK_FILE = path.join(process.cwd(), '.mcp-docs-rs.lock');
 
 export class ProcessManager {
   private instanceId: string;

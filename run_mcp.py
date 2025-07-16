@@ -4,23 +4,31 @@ import subprocess
 import signal
 import platform
 
-CREATE_NO_WINDOW = 0x08000000
+# CREATE_NO_WINDOW is a Windows-specific flag.
+if platform.system() == "Windows":
+    CREATE_NO_WINDOW = 0x08000000
 
 proc = None
 
 def handle_termination(signum, frame):
     if proc and proc.poll() is None:
         try:
-            # On Windows, terminating the shell process doesn't always terminate the child
-            # so we need to handle it more gracefully.
             if platform.system() == "Windows":
+                # On Windows, taskkill is the most reliable way to kill a process tree.
                 subprocess.call(['taskkill', '/F', '/T', '/PID', str(proc.pid)])
             else:
-                proc.terminate()
+                # On Unix-like systems, kill the entire process group.
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
                 proc.wait(timeout=1)
+        except (ProcessLookupError, PermissionError): # Process might be already dead
+            pass
         except Exception:
             try:
-                proc.kill()
+                # Fallback to kill if terminate fails
+                if platform.system() == "Windows":
+                    proc.kill()
+                else:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
             except Exception:
                 pass
     sys.exit(0)
@@ -37,21 +45,26 @@ def main():
         # Construct path to index.js relative to script location
         index_js_path = os.path.join(script_dir, 'dist', 'index.js')
         
-        # Prepare arguments for Popen, excluding creationflags initially
+        command = ['node', index_js_path]
+        
         popen_kwargs = {
             "stdin": sys.stdin,
             "stdout": sys.stdout,
             "stderr": sys.stderr,
-            "shell": True,
             "env": os.environ,
         }
 
-        # Conditionally add creationflags only on Windows
+        # Platform-specific arguments
         if platform.system() == "Windows":
             popen_kwargs["creationflags"] = CREATE_NO_WINDOW
+        else:
+            # On Unix-like systems, start the process in a new session
+            # to make it a process group leader. This allows killing
+            # the process and all its children together.
+            popen_kwargs["start_new_session"] = True
 
         proc = subprocess.Popen(
-            f"node {index_js_path}",
+            command,
             **popen_kwargs
         )
 

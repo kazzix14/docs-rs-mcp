@@ -2,7 +2,7 @@
 
 import { config } from 'dotenv';
 import { ProcessManager } from './process-manager.js';
-import { YourMcp } from './mcp.js';
+import { DocsRsMcp } from './mcp.js';
 
 // 加载环境变量
 config();
@@ -19,12 +19,12 @@ async function main() {
   }
 
   // 实例化你的MCP
-  const yourMcp = new YourMcp();
+  const docsRsMcp = new DocsRsMcp();
 
   // 处理进程退出
   const shutdown = async () => {
     console.log('正在关闭MCP服务...');
-    await yourMcp.close();
+    await docsRsMcp.close();
     process.exit(0);
   };
 
