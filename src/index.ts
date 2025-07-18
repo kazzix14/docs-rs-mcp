@@ -30,6 +30,12 @@ async function main() {
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+
+  // Keep the process running
+  await new Promise((resolve) => {
+    // This promise never resolves, keeping the process alive
+    // The process will only exit via signal handlers
+  });
 }
 
 // Start application
