@@ -6,32 +6,21 @@ This is a fork of [shuakami/mcp-docsrs](https://github.com/shuakami/mcp-docsrs) 
 
 ## Setup
 
-### 1. Install
-```bash
-git clone https://github.com/kazzix14/docs-rs-mcp.git
-cd docs-rs-mcp
-npm install
-npm run build
-```
-
-### 2. Configure Cursor
+### 1. Configure Cursor
 
 Edit `~/.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
     "docs-rs": {
-      "command": "node",
-      "args": ["dist/index.js"],
-      "cwd": "/path/to/your/docs-rs-mcp"
+      "command": "npx",
+      "args": ["-y", "docs-rs-mcp"]
     }
   }
 }
 ```
 
-Replace `/path/to/your/docs-rs-mcp` with your actual path.
-
-### 3. Restart
+### 2. Restart
 Restart your MCP client and you're ready.
 
 ## Tools

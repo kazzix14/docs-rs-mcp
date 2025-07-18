@@ -1,20 +1,27 @@
 {
-  "name": "mcp-template",
+  "name": "docs-rs-mcp",
   "version": "1.0.0",
-  "description": "A best-practice template for creating MCP tools.",
+  "description": "MCP server for accessing Rust crate documentation from docs.rs",
   "main": "dist/index.js",
+  "bin": {
+    "docs-rs-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/"
+  ],
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "start": "NODE_NO_WARNINGS=1 node --loader ts-node/esm src/index.ts",
-    "start:prod": "node dist/index.js",
-    "dev": "node --watch --loader ts-node/esm src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node --watch --loader ts-node/esm src/index.ts"
   },
   "keywords": [
     "mcp",
-    "template",
-    "tools"
+    "docs-rs", 
+    "rust",
+    "documentation",
+    "api"
   ],
   "author": "",
   "license": "(ISC AND AGPL-3.0-or-later)",
