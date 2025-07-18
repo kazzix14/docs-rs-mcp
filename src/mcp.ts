@@ -17,7 +17,7 @@ export class DocsRsMcp {
     this.registerTools();
     const transport = new StdioServerTransport();
     this.server.connect(transport).catch(err => {
-      console.error('连接MCP传输错误:', err);
+      console.error('MCP transport connection error:', err);
     });
   }
 

@@ -4,26 +4,26 @@ import { config } from 'dotenv';
 import { ProcessManager } from './process-manager.js';
 import { DocsRsMcp } from './mcp.js';
 
-// 加载环境变量
+// Load environment variables
 config();
 
-// 主函数
+// Main function
 async function main() {
-  // 创建进程管理器
+  // Create process manager
   const processManager = new ProcessManager();
 
-  // 检查进程互斥
+  // Check process mutex
   if (!await processManager.checkAndCreateLock()) {
-    console.log('无法创建MCP实例，程序退出');
+    console.log('Unable to create MCP instance, exiting program');
     process.exit(1);
   }
 
-  // 实例化你的MCP
+  // Instantiate your MCP
   const docsRsMcp = new DocsRsMcp();
 
-  // 处理进程退出
+  // Handle process exit
   const shutdown = async () => {
-    console.log('正在关闭MCP服务...');
+    console.log('Shutting down MCP service...');
     await docsRsMcp.close();
     process.exit(0);
   };
@@ -32,8 +32,8 @@ async function main() {
   process.on('SIGTERM', shutdown);
 }
 
-// 启动应用
+// Start application
 main().catch(error => {
-  console.error('MCP服务启动失败:', error);
+  console.error('MCP service startup failed:', error);
   process.exit(1);
 }); 

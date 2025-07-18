@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "pythonw run_mcp.py",
+    "start": "node --loader ts-node/esm src/index.ts",
     "dev": "node --watch --loader ts-node/esm src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -16,7 +16,7 @@
     "tools"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "(ISC AND AGPL-3.0-or-later)",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.1",
     "axios": "^1.7.2",
