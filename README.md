@@ -6,9 +6,9 @@ This is a fork of [shuakami/mcp-docsrs](https://github.com/shuakami/mcp-docsrs) 
 
 ## Setup
 
-### 1. Configure Cursor
+### 1. Configure Claude Code
 
-Edit `~/.cursor/mcp.json`:
+Edit `~/.claude/mcp.json`:
 ```json
 {
   "mcpServers": {
