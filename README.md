@@ -8,16 +8,9 @@ This is a fork of [shuakami/mcp-docsrs](https://github.com/shuakami/mcp-docsrs) 
 
 ### 1. Configure Claude Code
 
-Edit `~/.claude/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "docs-rs": {
-      "command": "npx",
-      "args": ["-y", "docs-rs-mcp"]
-    }
-  }
-}
+Run this command:
+```bash
+claude mcp add-json docs-rs '{"command": "npx", "args": ["-y", "docs-rs-mcp"]}'
 ```
 
 ### 2. Restart
