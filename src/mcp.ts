@@ -204,6 +204,6 @@ export class DocsRsMcp {
   }
 
   async close(): Promise<void> {
-    console.log("MCP server has been closed.");
+    // MCP server has been closed.
   }
 } 

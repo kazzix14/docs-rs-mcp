@@ -30,7 +30,7 @@ export class ProcessManager {
         // Only clean up own lock file
         if (lockData.instanceId === this.instanceId) {
           fs.unlinkSync(LOCK_FILE);
-          console.log('Process lock file cleaned up');
+          // Process lock file cleaned up
         }
       }
     } catch (error) {
@@ -62,7 +62,7 @@ export class ProcessManager {
         try {
           // Check if process is still running
           process.kill(lockData.pid, 0);
-          console.log('Detected existing MCP instance running, attempting to terminate old instance...');
+          console.error('Detected existing MCP instance running, attempting to terminate old instance...');
           // Send termination signal
           process.kill(lockData.pid, 'SIGTERM');
           
@@ -72,13 +72,13 @@ export class ProcessManager {
             console.error('Timeout waiting for old instance to exit, please manually check and terminate process (PID: ' + lockData.pid + ')');
             return false;
           }
-          console.log('Old instance has exited');
+          // Old instance has exited
           
           // Delete old lock file
           fs.unlinkSync(LOCK_FILE);
         } catch (e) {
           // Process doesn't exist, it's an expired lock file
-          console.log('Detected expired lock file, will overwrite directly');
+          // Detected expired lock file, will overwrite directly
           fs.unlinkSync(LOCK_FILE);
         }
       }
@@ -90,7 +90,7 @@ export class ProcessManager {
         timestamp: Date.now()
       }));
 
-      console.log('MCP instance lock file created');
+      // MCP instance lock file created
       return true;
     } catch (error) {
       console.error('Error handling lock file:', error);

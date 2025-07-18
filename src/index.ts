@@ -14,7 +14,7 @@ async function main() {
 
   // Check process mutex
   if (!await processManager.checkAndCreateLock()) {
-    console.log('Unable to create MCP instance, exiting program');
+    console.error('Unable to create MCP instance, exiting program');
     process.exit(1);
   }
 
@@ -23,7 +23,7 @@ async function main() {
 
   // Handle process exit
   const shutdown = async () => {
-    console.log('Shutting down MCP service...');
+    console.error('Shutting down MCP service...');
     await docsRsMcp.close();
     process.exit(0);
   };
