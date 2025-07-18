@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node --loader ts-node/esm src/index.ts",
+    "start": "NODE_NO_WARNINGS=1 node --loader ts-node/esm src/index.ts",
+    "start:prod": "node dist/index.js",
     "dev": "node --watch --loader ts-node/esm src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

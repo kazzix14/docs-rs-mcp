@@ -105,10 +105,9 @@ Follow the steps below to configure MCP based on your operating system:
 {
   "mcpServers": {
     "docsrs-mcp": {
-      "command": "npm",
+      "command": "node",
       "args": [
-        "run",
-        "start"
+        "dist/index.js"
       ],
       "cwd": "C:/Users/YourUsername/mcp-docsrs"
     }
@@ -134,10 +133,9 @@ Follow the steps below to configure MCP based on your operating system:
 {
   "mcpServers": {
     "docsrs-mcp": {
-      "command": "npm",
+      "command": "node",
       "args": [
-        "run",
-        "start"
+        "dist/index.js"
       ],
       "cwd": "/Users/YourUsername/mcp-docsrs"
     }
@@ -163,10 +161,9 @@ Follow the steps below to configure MCP based on your operating system:
 {
   "mcpServers": {
     "docsrs-mcp": {
-      "command": "npm",
+      "command": "node",
       "args": [
-        "run",
-        "start"
+        "dist/index.js"
       ],
       "cwd": "/home/YourUsername/mcp-docsrs"
     }

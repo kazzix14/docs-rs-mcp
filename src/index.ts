@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { config } from 'dotenv';
-import { ProcessManager } from './process-manager.js';
 import { DocsRsMcp } from './mcp.js';
 
 // Load environment variables
@@ -9,28 +8,29 @@ config();
 
 // Main function
 async function main() {
-  // Create process manager
-  const processManager = new ProcessManager();
-
-  // Check process mutex
-  if (!await processManager.checkAndCreateLock()) {
-    console.error('Unable to create MCP instance, exiting program');
-    process.exit(1);
-  }
-
   // Instantiate your MCP
   const docsRsMcp = new DocsRsMcp();
 
   // Handle process exit
   const shutdown = async () => {
-    console.error('Shutting down MCP service...');
     await docsRsMcp.close();
     process.exit(0);
   };
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
-
+  
+  // Handle uncaught errors
+  process.on('uncaughtException', (error) => {
+    console.error('[FATAL] Uncaught exception:', error);
+    shutdown();
+  });
+  
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] Unhandled rejection at:', promise, 'reason:', reason);
+    shutdown();
+  });
+  
   // Keep the process running
   await new Promise((resolve) => {
     // This promise never resolves, keeping the process alive
@@ -40,6 +40,7 @@ async function main() {
 
 // Start application
 main().catch(error => {
-  console.error('MCP service startup failed:', error);
+  console.error('[FATAL] MCP service startup failed:', error);
+  console.error('[FATAL] Stack trace:', error.stack);
   process.exit(1);
 }); 
