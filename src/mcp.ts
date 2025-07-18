@@ -103,43 +103,79 @@ export class DocsRsMcp {
       "getItemDefinition",
       {
         itemPath: z.string().describe("The full path to the item (e.g., tokio::sync::Mutex)."),
-        page: z.number().int().positive().optional().describe("The page number of the documentation to display."),
+        page: z.number().int().positive().optional().describe("The page number of methods to display (10 methods per page)."),
       },
       async ({ itemPath, page = 1 }) => {
         try {
           const def = await this.api.scrapeItemDefinition(itemPath);
-          let rawDocText: string;
-
-          try {
-            rawDocText = htmlToText(def.docHtml, {
-              wordwrap: 120,
-              selectors: [
-                  { selector: 'a', options: { ignoreHref: true } },
-                  { selector: 'img', format: 'skip' },
-                  { selector: 'h1', options: { uppercase: false, prefix: '# ' } },
-                  { selector: 'h2', options: { uppercase: false, prefix: '## ' } },
-                  { selector: 'h3', options: { uppercase: false, prefix: '### ' } },
-                  { selector: 'pre', format: 'rustBlock' },
-              ]
+          
+          // Build the response text
+          let responseText = `**Item Type:** ${def.itemType}\n\n`;
+          
+          // Add definition if available
+          if (def.definition) {
+            responseText += `**Definition:**\n\`\`\`rust\n${def.definition}\n\`\`\`\n\n`;
+          }
+          
+          // Add fields if any
+          if (def.fields.length > 0) {
+            responseText += `**Fields:** (${def.fields.length} total)\n`;
+            def.fields.forEach(field => {
+              responseText += `- \`${field.name}\``;
+              if (field.type) {
+                responseText += `: ${field.type}`;
+              }
+              if (field.docs) {
+                responseText += ` - ${field.docs}`;
+              }
+              responseText += '\n';
             });
-          } catch (formatError) {
-            console.error("Markdown formatting failed, falling back to raw HTML.", formatError);
-            rawDocText = `[Warning: Markdown formatting failed. Displaying raw content.]\n\n${def.docHtml}`;
+            responseText += '\n';
           }
           
-          const charsPerPage = 6000;
-          const totalPages = Math.ceil(rawDocText.length / charsPerPage);
-
-          if (page > totalPages) {
-            return { content: [{ type: "text", text: `Invalid page number. Only ${totalPages} pages found for "${itemPath}" documentation.` }] };
+          // Add methods with pagination
+          if (def.methods.length > 0) {
+            const methodsPerPage = 10;
+            const totalPages = Math.ceil(def.methods.length / methodsPerPage);
+            
+            if (page > totalPages) {
+              return { content: [{ type: "text", text: `Invalid page number. Only ${totalPages} pages of methods available for "${itemPath}".` }] };
+            }
+            
+            const startIdx = (page - 1) * methodsPerPage;
+            const endIdx = Math.min(startIdx + methodsPerPage, def.methods.length);
+            const methodsSlice = def.methods.slice(startIdx, endIdx);
+            
+            responseText += `**Methods:** (showing ${startIdx + 1}-${endIdx} of ${def.methods.length} total)\n\n`;
+            
+            methodsSlice.forEach((method, idx) => {
+              responseText += `${startIdx + idx + 1}. **${method.name}**\n`;
+              responseText += `   \`\`\`rust\n   ${method.signature}\n   \`\`\`\n`;
+              if (method.docs) {
+                responseText += `   ${method.docs}\n`;
+              }
+              responseText += '\n';
+            });
+            
+            if (totalPages > 1) {
+              responseText += `\n--- Page ${page} of ${totalPages} (${methodsPerPage} methods/page) ---\n`;
+              responseText += `Use the 'page' parameter to see more methods.`;
+            }
           }
           
-          const startChar = (page - 1) * charsPerPage;
-          const endChar = startChar + charsPerPage;
-          const pageContent = rawDocText.substring(startChar, endChar);
-
-          const footer = `\n\n--- Page ${page} of ${totalPages} (approx. 6000 chars/page) ---`;
-          const responseText = `**Item Type:** ${def.itemType}\n\n**Documentation:**\n\n${pageContent}${footer}`;
+          // Add documentation preview (first 1000 chars)
+          if (def.documentation && def.documentation !== 'No documentation found.') {
+            responseText += `\n**Documentation:**\n${def.documentation.substring(0, 1000)}`;
+            if (def.documentation.length > 1000) {
+              responseText += '...';
+            }
+            responseText += '\n';
+          }
+          
+          // Add examples count
+          if (def.examples.length > 0) {
+            responseText += `\n**Examples:** ${def.examples.length} available (use getItemExamples to view)`;
+          }
 
           return { content: [{ type: "text", text: responseText }] };
         } catch (error) {

@@ -18,6 +18,15 @@ export interface CrateSearchResult {
     };
 }
 
+export interface ItemDefinition {
+  itemType: string;
+  definition: string;
+  fields: Array<{name: string; type: string; docs: string}>;
+  methods: Array<{name: string; signature: string; docs: string}>;
+  documentation: string;
+  examples: string[];
+}
+
 export class DocsRsApi {
   private readonly userAgent: string;
   private readonly cache: Map<string, CacheEntry<any>>;
@@ -159,9 +168,9 @@ export class DocsRsApi {
     return features;
   }
 
-  async scrapeItemDefinition(itemPath: string): Promise<{ itemType: string; docHtml: string }> {
+  async scrapeItemDefinition(itemPath: string): Promise<ItemDefinition> {
     const cacheKey = `definition:${itemPath}`;
-    const cached = this.getFromCache<{ itemType: string; docHtml: string }>(cacheKey);
+    const cached = this.getFromCache<ItemDefinition>(cacheKey);
     if (cached) return cached;
 
     const parts = itemPath.split('::');
@@ -192,33 +201,105 @@ export class DocsRsApi {
     }
     
     try {
-        // We use Promise.any for stdlib, and a direct fetch for others.
-        // Wrapping the single promise in an array and using .any still works.
         const successfulResponse = await Promise.any(fetchPromises.map(p => p.then(res => {
             if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
-        return res;
+            return res;
         })));
 
-      const html = await successfulResponse.text();
-      const $ = cheerio.load(html);
-      
-      const mainContent = $('#main-content');
-      const itemType = mainContent.find('.main-heading span').first().text().trim() || 'Unknown';
-        const rawDocHtml = mainContent.find('details.top-doc > .docblock').html() || mainContent.find('.docblock').first().html();
+        const html = await successfulResponse.text();
+        const $ = cheerio.load(html);
+        const mainContent = $('#main-content');
+        const turndownService = new TurndownService();
+        
+        // 1. Get item type and definition
+        const itemType = mainContent.find('.main-heading span').first().text().trim() || 'Unknown';
+        const definition = mainContent.find('pre.rust.item-decl').text().trim() || '';
 
-        let docMarkdown = 'No documentation found.';
-        if (rawDocHtml) {
-            const turndownService = new TurndownService();
-            docMarkdown = turndownService.turndown(rawDocHtml);
+        // 2. Get documentation
+        const docBlock = mainContent.find('details.top-doc > .docblock').html() || mainContent.find('.docblock').first().html() || '';
+        const documentation = docBlock ? turndownService.turndown(docBlock) : 'No documentation found.';
+
+        // 3. Get fields (if any)
+        const fields: Array<{name: string; type: string; docs: string}> = [];
+        
+        // Look for fields after the #fields section
+        const fieldsSection = mainContent.find('#fields').first();
+        if (fieldsSection.length > 0) {
+            fieldsSection.nextAll('.structfield').each((_, el) => {
+                const $el = $(el);
+                const fieldId = $el.attr('id') || '';
+                const fieldName = fieldId.replace('structfield.', '');
+                
+                // Get the full field declaration from code element
+                const codeText = $el.find('code').text().trim();
+                // Extract type by removing field name and colon
+                const fieldType = codeText.replace(new RegExp(`^${fieldName}:\\s*`), '');
+                
+                // Get documentation from the next sibling .docblock
+                const nextDocBlock = $el.next('.docblock');
+                const fieldDocs = nextDocBlock.length > 0 ? nextDocBlock.html() || '' : '';
+                
+                if (fieldName) {
+                    fields.push({
+                        name: fieldName,
+                        type: fieldType,
+                        docs: fieldDocs ? turndownService.turndown(fieldDocs) : ''
+                    });
+                }
+            });
         }
 
-        const result = { itemType, docHtml: docMarkdown };
-      this.setInCache(cacheKey, result);
-      return result;
+        // 4. Get methods
+        const methods: Array<{name: string; signature: string; docs: string}> = [];
+        mainContent.find('section.method').each((_, el) => {
+            const $el = $(el);
+            const methodId = $el.attr('id') || '';
+            const methodName = methodId.replace('method.', '');
+            
+            // Get the full signature from the code header and normalize whitespace
+            const signature = $el.find('h4.code-header').text().trim()
+                .replace(/\s+/g, ' ')
+                .replace(/\s*,\s*/g, ', ')
+                .replace(/\s*->\s*/g, ' -> ')
+                .replace(/where\s+/g, ' where ');
+            
+            // Get method documentation (first paragraph only for preview)
+            const methodDocBlock = $el.find('.docblock').html() || '';
+            const methodDocs = methodDocBlock ? turndownService.turndown(methodDocBlock).split('\n')[0] : '';
+
+            if (methodName && signature) {
+                methods.push({
+                    name: methodName,
+                    signature,
+                    docs: methodDocs
+                });
+            }
+        });
+
+        // 5. Get examples
+        const examples: string[] = [];
+        mainContent.find('.example-wrap pre.rust').each((_, el) => {
+            const example = $(el).text().trim();
+            if (example) {
+                examples.push(example);
+            }
+        });
+
+        const result: ItemDefinition = {
+            itemType,
+            definition,
+            fields,
+            methods,
+            documentation,
+            examples
+        };
+        
+        this.setInCache(cacheKey, result);
+        return result;
     } catch (error) {
         if (error instanceof Error) {
             throw new Error(`Failed to process documentation page for "${itemPath}". Reason: ${error.message}`);
-      }
+        }
         throw new Error(`An unknown error occurred while processing documentation for "${itemPath}".`);
     }
   }
