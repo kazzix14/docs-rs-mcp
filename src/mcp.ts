@@ -163,6 +163,36 @@ export class DocsRsMcp {
             }
           }
           
+          // Add trait implementations
+          if (def.traitImplementations && def.traitImplementations.length > 0) {
+            responseText += `\n**Trait Implementations:**\n\n`;
+            
+            // Separate regular and auto traits
+            const regularTraits = def.traitImplementations.filter(t => !t.isAuto);
+            const autoTraits = def.traitImplementations.filter(t => t.isAuto);
+            
+            if (regularTraits.length > 0) {
+              responseText += '```rust\n';
+              regularTraits.forEach(impl => {
+                responseText += `${impl.fullImpl}\n`;
+              });
+              responseText += '```\n';
+            }
+            
+            if (autoTraits.length > 0) {
+              responseText += '\n**Auto Trait Implementations:**\n```rust\n';
+              autoTraits.forEach(impl => {
+                responseText += `${impl.fullImpl}\n`;
+              });
+              responseText += '```\n';
+            }
+          }
+          
+          // Add type alias definition
+          if (def.typeAliasDefinition) {
+            responseText += `\n**Type Alias Definition:**\n\`\`\`rust\n${def.typeAliasDefinition}\n\`\`\`\n`;
+          }
+          
           // Add documentation preview (first 1000 chars)
           if (def.documentation && def.documentation !== 'No documentation found.') {
             responseText += `\n**Documentation:**\n${def.documentation.substring(0, 1000)}`;
@@ -217,7 +247,7 @@ export class DocsRsMcp {
       "searchInCrate",
       {
         crateName: z.string().describe("The name of the crate to search within."),
-        query: z.string().describe("The item to search for inside the crate."),
+        query: z.string().describe("The name of a specific item (struct, function, trait, module, etc.) to search for. NOT for searching trait bounds like 'Send Sync'. Use actual item names like 'Mutex', 'spawn', 'RwLock', etc."),
       },
       async ({ crateName, query }) => {
         try {

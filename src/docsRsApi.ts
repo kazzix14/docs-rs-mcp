@@ -23,6 +23,8 @@ export interface ItemDefinition {
   definition: string;
   fields: Array<{name: string; type: string; docs: string}>;
   methods: Array<{name: string; signature: string; docs: string}>;
+  traitImplementations: Array<{fullImpl: string; isAuto?: boolean}>;
+  typeAliasDefinition?: string;
   documentation: string;
   examples: string[];
 }
@@ -276,7 +278,44 @@ export class DocsRsApi {
             }
         });
 
-        // 5. Get examples
+        // 5. Get trait implementations
+        const traitImplementations: Array<{fullImpl: string; isAuto?: boolean}> = [];
+        
+        // Extract all trait implementations
+        $('.impl').each((_, implElem) => {
+            const $impl = $(implElem);
+            const headerText = $impl.find('h3.code-header').text().trim();
+            
+            // Check if it's a trait implementation (has "for")
+            if (!headerText.includes(' for ')) return;
+            
+            // Skip if it's just a struct implementation (not a trait)
+            if (headerText.match(/^impl<[^>]+>\s+\w+<[^>]+>\s*$/)) return;
+            
+            // Determine if it's an auto trait
+            const parentId = $impl.parent().attr('id') || '';
+            const isAuto = parentId.includes('synthetic') || parentId.includes('auto');
+            
+            // Add the full implementation
+            traitImplementations.push({
+                fullImpl: headerText,
+                isAuto
+            });
+        });
+        
+        // 6. Get type alias definition (if applicable)
+        let typeAliasDefinition: string | undefined;
+        // Check if there are multiple definitions (indicates a type alias)
+        const allDefinitions = $('pre.rust.item-decl');
+        if (allDefinitions.length > 1) {
+            // Check if first definition is a type alias
+            const firstDef = allDefinitions.eq(0).text().trim();
+            if (firstDef.includes('type ') && firstDef.includes(' = ')) {
+                typeAliasDefinition = firstDef;
+            }
+        }
+        
+        // 7. Get examples
         const examples: string[] = [];
         mainContent.find('.example-wrap pre.rust').each((_, el) => {
             const example = $(el).text().trim();
@@ -290,6 +329,8 @@ export class DocsRsApi {
             definition,
             fields,
             methods,
+            traitImplementations,
+            typeAliasDefinition,
             documentation,
             examples
         };
